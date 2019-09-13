@@ -1,6 +1,0 @@
-"0","```r
-landsat <- subset(landsat, 1:7)
-names(landsat)
-names(landsat) <- c('ultra-blue', 'blue', 'green', 'red', 'NIR', 'SWIR1', 'SWIR2')
-names(landsat)
-```"

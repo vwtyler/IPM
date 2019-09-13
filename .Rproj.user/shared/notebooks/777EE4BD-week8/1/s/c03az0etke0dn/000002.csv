@@ -1,9 +1,0 @@
-"0","```r
-par(mfrow=c(1,2))
-#plotRBG, specify our rgb layers from landsat raster
-#r = 4, g = 3, b = 2, NIR = 5
-plotRGB(landsat, r = 4, g = 3, b = 2, stretch = \"lin\", axes = TRUE, main=\"Landsat True Color Composite\")
-
-#this is the false color composit, with NIR, Red, Green replacing r, g, b
-plotRGB(landsat, r = 5, g = 4, b = 3, stretch = \"lin\", main=\"Landsat False Color Composite\", axes = TRUE)
-```"
