@@ -22,8 +22,8 @@ library(stringr)
 
 ```{r}
 #load edges and nodes
-nodes <- read.csv("nodes.csv")
-edges <- read.csv("edges.csv")
+nodes <- read.csv("./data/nodes.csv")
+edges <- read.csv("./data/edges.csv")
 ```
 
 ## Basic Plots
