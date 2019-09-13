@@ -1,0 +1,11 @@
+"0","```r
+# first create a list of raster layers to use
+filenames <- paste0(file.path(myPath,'rs/LC08_044034_20170614_B'), 1:11, \".tif\")
+head(filenames)
+
+#create raster stack from the object `filenames`
+landsat <- stack(filenames)
+
+#now we have object `landsat` for q1
+landsat
+```"

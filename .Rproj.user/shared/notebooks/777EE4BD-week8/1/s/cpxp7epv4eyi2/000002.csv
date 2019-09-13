@@ -1,0 +1,4 @@
+"0","```r
+plotRGB(landsat, stretch = \"lin\")
+drawExtent()
+```"

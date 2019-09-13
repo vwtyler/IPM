@@ -1,0 +1,227 @@
+---
+title: "National NRECA Network"
+author: "Tyler Jackson and Katelin Jones"
+date: "5/31/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(mapview)
+library(rgdal)
+library(sf)
+library(ggplot2)
+library(stringr)
+library(scales)
+library(igraph)
+library(ggmap)
+library(maps)
+library(ggthemes)
+library(mapdata)
+library(tidyverse)
+library(ggrepel)
+```
+
+
+Bring in the (Geocoded) National Data and the Edges
+```{r}
+# Create an object for national nodes.
+nat_nodes <- read.csv("./data/natl_nodes-geocoded.csv", stringsAsFactors = F)
+
+# Clean up data and clear out extra variable of lng.
+nat_nodes$lon <- nat_nodes$lng
+nat_nodes$lng <- NULL
+nat_nodes
+
+# Create an object for national edges.
+nat_edges <- read.csv("./data/natl_edges.csv", stringsAsFactors = F)
+nat_edges
+```
+
+## Interactive Maps
+```{r}
+nat_nodes.sf <- st_as_sf(x = nat_nodes[!is.na(nat_nodes$lat),], 
+                        coords = c("lon", "lat"),
+                        crs = "+proj=longlat +datum=WGS84")
+mapview(nat_nodes.sf)
+
+``` 
+
+```{r}
+# Create data frame from our edges table.
+graph1 <- graph.data.frame(nat_edges, directed = T)
+graph1
+summary(graph1)
+
+
+
+# Add attributes of the nodes to the graph.
+nat_nodes$idch <- as.character(nat_nodes$ID)
+id <- match(V(graph1)$name, nat_nodes$idch)
+V(graph1)$lat <- nat_nodes$lat[id]
+V(graph1)$lon <- nat_nodes$lon[id]
+V(graph1)$cat1 <- as.character(nat_nodes$cat1[id])
+V(graph1)$cat2 <- as.character(nat_nodes$cat2[id])
+V(graph1)$cat3 <- as.character(nat_nodes$cat3[id])
+V(graph1)$fullname <- as.character(nat_nodes$Label[id])
+V(graph1)$state <- as.character(nat_nodes$State[id])
+
+# Fix one of the attributes. 
+
+nat_nodes$cat2[217] <- 'Vendor'
+summary(graph1)
+``` 
+
+```{r}
+# Compute centrality measures and add to network.
+indeg <- degree(graph1, v=V(graph1), mode=c("in"),loops=FALSE)
+outdeg <- degree(graph1, v=V(graph1), mode=c("out"),loops=FALSE)
+alldeg <- degree(graph1, v=V(graph1), mode=c("all"),loops=FALSE)
+indegN <- degree(graph1, v=V(graph1), mode=c("in"),loops=FALSE, normalized=TRUE)
+outdegN <- degree(graph1, v=V(graph1), mode=c("out"),loops=FALSE,normalized=TRUE)
+
+inclose <- closeness(graph1, v=V(graph1), mode = ("in"))
+outclose <- closeness(graph1, v=V(graph1), mode = ("out"))
+bet <- betweenness(graph1, v=V(graph1), directed = TRUE)
+betN <- bet/max(bet)
+
+# Add centrality measures to node attributes.
+V(graph1)$indeg <- indeg
+V(graph1)$outdeg <- outdeg
+V(graph1)$indegN <- indegN
+V(graph1)$outdegN <- outdegN
+V(graph1)$inclose <- inclose
+V(graph1)$outclose <- outclose
+V(graph1)$bet <- bet
+V(graph1)$betN <- betN
+V(graph1)$alldeg <- alldeg
+
+plot(graph1, layout = layout_components, vertex.label = NA, vertex.size = alldeg, edge.arrow.size = .4)
+
+``` 
+
+
+###Graph of the Entire Network
+
+The following graph is a visual representation of the South Carolina, Indiana, and Arkansas Electric Cooperative Networks. 
+```{r}
+par(mfrow=c(1,1),mar=c(0,3,1,0))
+colpal <- c("red", "blue", "yellow", "green", "orange")
+plot(graph1, layout = layout_components, vertex.size = 11, edge.arrow.size = .4, 
+     vertex.color = rainbow(12)[factor(V(g1)$cat2)],
+     main = "South Carolina, Indiana, and Arkansas Electric Cooperative Networks")
+legend("bottomleft", legend = levels(factor(V(graph1)$cat2)), col = rainbow(12),
+       pch = 16, bty = "n", title = "Node Type", inset=c(-0.1,0))
+``` 
+
+### Distribution Cooperatives
+
+The following graph 
+
+```{r}
+
+dnodes <- ego(graph1, order = 1, nodes = V(graph1)[cat2 == "Distribution"], mode = "all", mindist = 0)
+graph_dnodes <- induced_subgraph(graph1, unlist(dnodes))
+par(mfrow=c(1,1),mar=c(0,3,1,0))
+plot(graph_dnodes, layout = layout_components, vertex.size = 12, edge.arrow.size = .4, 
+     vertex.color = rainbow(12)[factor(V(graph_dnodes)$cat2)],
+     main = "Distribution Cooperative Network")
+legend("bottomleft", legend = levels(factor(V(graph_dnodes)$cat2)), col = rainbow(12),
+       pch = 16, bty = "n", title = "Node Type", inset=c(-0.1,0))
+``` 
+
+
+### Spatial Network
+```{r echo = FALSE}
+
+# Delete nodes that don't have geographic data for spatial maps.
+
+
+
+# Plot network on a geographical map for South Carolina. 
+data(countyMapEnv)
+par(mfrow=c(1,1), mar=c(0,3,1,0))
+maps::map('county', 'south carolina')
+
+
+sel.state1 <- which(V(graph1)$state == "SC")
+g.state1 <- induced_subgraph(graph1, unlist(sel.state1))
+latex <- matrix(c(V(g.state1)$lon, V(g.state1)$lat), ncol=2)
+
+plot(g.state1, layout=latex,
+     add = TRUE,
+     rescale = FALSE,
+     edge.arrow.size=.4,
+     edge.color="purple",
+     vertex.size=10, 
+     vertex.color=rainbow(12)[factor(V(g.state1)$cat2)],
+     edge.curved=.3,
+     vertex.label=NA)
+title("South Carolina Electric Cooperative Network")
+legend("bottomleft", legend = levels(factor(V(g.state1)$cat2)), col = rainbow(12),
+       pch = 16, bty = "n", title = "Node Type", inset=c(-0.2,0))
+```
+
+```{r}
+# Plot network on a geographical map for Indiana.
+
+#nat_nodes[!is.na(nat_nodes$lat),]
+
+data(countyMapEnv)
+par(mfrow=c(1,1), mar=c(1,3,3,1))
+maps::map('county', 'indiana')
+
+
+sel.state2 <- which(V(graph1)$state == 'IN')
+sel.state2
+g.state2 <- induced_subgraph(graph1, unlist(sel.state2))
+latex <- matrix(c(V(g.state2)$lon, V(g.state2)$lat), ncol=2)
+latex
+
+g.state2
+
+plot(g.state2, layout=latex,
+    # add = TRUE,
+     rescale = FALSE,
+     edge.arrow.size=.4,
+     edge.color="blue",
+     vertex.size=10, 
+     vertex.color=rainbow(12)[factor(V(g.state2)$cat2)],
+     edge.curved=.3,
+     vertex.label=NA)
+title("Indiana Electric Cooperative Network")
+legend("bottomleft", legend = levels(factor(V(g.state2)$cat2)), col = rainbow(12),
+       pch = 16, bty = "n", title = "Node Type", inset=c(-0.8,0))
+
+
+```
+```{r}
+# Plot network on a geographical map for Arkansas.
+data(countyMapEnv)
+par(mfrow=c(1,1), mar=c(1,3,3,1))
+maps::map('county', 'arkansas')
+
+sel.state3 <- which(V(graph1)$state == "AR")
+g.state3 <- induced_subgraph(graph1, unlist(sel.state3))
+latex <- matrix(c(V(g.state3)$lon, V(g.state3)$lat), ncol=2)
+latex
+
+plot(g.state3, layout=latex,
+     add = TRUE,
+     rescale = FALSE,
+     edge.arrow.size=.4,
+     edge.color="orange",
+     vertex.size=10, 
+     vertex.color=rainbow(12)[factor(V(g.state3)$cat2)],
+     edge.curved=.3,
+     vertex.label=NA)
+title("Arkansas Electric Cooperative Network")
+legend("bottomleft", legend = levels(factor(V(g.state3)$cat2)), col = rainbow(12),
+       pch = 16, bty = "n", title = "Node Type", inset=c(-0.4,0))
+
+
+```
+
+
+

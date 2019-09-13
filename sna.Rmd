@@ -1,0 +1,149 @@
+---
+title: "Western IMP SNA"
+author: "Tyler Jackson"
+date: "7/18/2019"
+output:
+  html_document:
+    theme: journal
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(igraph)
+library(stringr)
+```
+
+
+```{r}
+#load edges and nodes
+nodes <- read.csv("nodes.csv")
+edges <- read.csv("edges.csv")
+```
+
+## Basic Plots
+
+```{r graph}
+g1 <- graph.data.frame(edges, directed = T)
+
+plot(g1, main = "Basic Plot")
+#summary(g1)
+
+#add attributes from nodes
+id <- match(V(g1)$name, as.character(nodes$Contact))
+
+V(g1)$org <- as.character(nodes$Organization[id])
+V(g1)$firstFocus <- as.character(nodes$firstFocus[id])
+V(g1)$secondFocus <- as.character(nodes$secondFocus[id])
+V(g1)$st <- as.character(nodes$State[id])
+V(g1)$zip <- as.character(nodes$Zip[id])
+V(g1)$role <- as.character(nodes$Role[id])
+
+levels(nodes$Organization)
+```
+
+```{r}
+plot(g1, vertex.label = NA, vertex.size = 4, main = "Better looking plot")
+
+#levels(nodes$State)
+```
+
+## Descriptors
+
+__Density__
+
+This is the number of edges present over the total possible edges. Higher density indicates more connections.
+```{r}
+ecount(g1)/(vcount(g1)*(vcount(g1)-1)) #edges present vs all possible edges
+```
+
+__Reciprocity__
+
+Because I've set the graph up as a directed network, we can calculate reciprocity. In our case it's probably zero.
+```{r}
+reciprocity(g1) #reciprocity (none rn)
+```
+
+__Transitivity__
+
+**global** - ratio of triangles (direction disregarded) to connected triples.
+```{r}
+transitivity(g1, type="global") 
+```
+
+**triads** - counts of different types of triads (see comments)
+```{r}
+triad.census(g1)
+
+#003 A, B, C, empty triad.
+#012 A->B, C
+#102 A<->B, C
+#021D A<-B->C
+#021U A->B<-C
+#021C A->B->C
+#111D A<->B<-C
+#111U A<->B->C
+#030T A->B<-C, A->C
+#030C A<-B<-C, A->C.
+#201 A<->B<->C.
+#120D A<-B->C, A<->C.
+#120U A->B<-C, A<->C.
+#120C A->B->C, A<->C.
+#210 A->B<->C, A<->C.
+#300 A<->B<->C, A<->C, completely connected.
+```
+
+__Diameter__
+
+This is the shortest path.
+
+```{r}
+diameter(g1, directed=T, weights=NA) #shortest path btwn two nodes
+```
+
+__Degree__
+
+We can calculate the in and out degrees of each vertex(node). We can also adjust the vertex size in the plot weighted by it's degree.
+```{r}
+#get degree for each node, both in and out
+deg <- degree(g1, mode="all")
+
+#plot
+plot(g1, vertex.size=deg*.1, vertex.label = NA)
+```
+
+This looks pretty funny because of the network. Look at a histogram of the degrees.
+```{r}
+hist(deg, breaks=1:vcount(g1)-1, main="Histogram of node degree")
+```
+
+You can see that many of the nodes have only 1 degree, and a few have many.
+
+Why? This is because many of the nodes are only conencted to one person. That one person has a high degree while everyone else only has 1. 
+```{r}
+table(deg)
+```
+
+__Communities__
+
+We can create communities where nodes are densly connected.
+
+```{r}
+ceb <- cluster_edge_betweenness(g1, directed = T, modularity = FALSE)
+
+plot(ceb, g1, vertex.label = NA)
+```
+
+Or propogate labels. This is a fast, nearly linear time algorithm for detecting community structure in networks. In works by labeling the vertices with unique labels and then updating the labels by majority voting in the neighborhood of the vertex.
+
+```{r}
+clp <- cluster_label_prop(g1)
+
+plot(clp, g1, vertex.label = NA)
+```
+

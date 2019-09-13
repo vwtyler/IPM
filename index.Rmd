@@ -1,0 +1,82 @@
+---
+title: "Western IPM Center SNA"
+author: "Tyler Jackson"
+date: "7/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(igraph)
+```
+
+
+```{r data}
+
+#read in the data from Matt, needs cleaning
+clist <- read.csv("centerContactList.csv")
+
+dim(clist)
+head(clist[3:13,])
+
+nodes <- clist[,3:13]
+
+names(nodes)
+
+#created a dummy variable to aggregate by
+clist$null <- ""
+
+#aggregate and add to nodes
+center.ppl <- aggregate(null ~ CenterPerson + CenterRole, data = clist,
+                        FUN = nrow) 
+
+names(center.ppl) <- c('Contact', 'Role')
+
+names(center.ppl)
+nodes <- rbind(nodes, center.ppl[,1:2])
+
+
+
+center.ppl$Contact <- as.character(center.ppl$Contact)
+center.ppl$Role <- as.character(center.ppl$Role)
+
+nodes <- bind_rows(nodes, center.ppl[,1:2])
+          
+names(nodes)
+names(clist)
+
+#create an edge list
+edges <- bind_cols(clist[,c(1,3)])
+
+names(edges) <- c('source', 'target')
+
+names(nodes)
+```
+
+```{r graph}
+
+g1 <- graph.data.frame(edges, directed = T)
+
+plot(g1)
+summary(g1)
+
+#add attributes from nodes
+id <- match(V(g1)$name, nodes$Contact)
+V(g1)$org <- nodes$Organization[id]
+V(g1)$firstFocus <- nodes$firstFocus[id]
+V(g1)$secondFocus <- nodes$secondFocus[id]
+V(g1)$st <- nodes$State[id]
+V(g1)$zip <- nodes$Zip[id]
+V(g1)$role <- nodes$Role[id]
+
+
+```
+
+```{r}
+plot(g1, layout=layout_with_fr, vertex.label = NA)
+
+str(nodes)
+```
+
