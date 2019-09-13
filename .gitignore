@@ -1,3 +1,5 @@
 
-.Rproj.user/388EE05C/*
-.Rproj.user/shared/*
+.Rproj.user
+.Rhistory
+.RData
+.Rproj.user/*
